@@ -11,9 +11,62 @@ pub struct ContractTwo {
 }
 
 #[derive(Debug)]
+pub struct User {
+    name: String,
+    age: u32,
+}
+
+trait GetUsers {
+    fn get_users() -> Vec<User>;
+    fn get_user_by_name(name: &str) -> Option<User>{
+        let users = Self::get_users();
+        for user in users {
+            if user.name == name {
+                return Some(user);
+            }
+        }
+        None
+    }
+}
+
+pub struct PostgresDB;
+
+impl GetUsers for PostgresDB {
+    fn get_users() -> Vec<User> {
+        vec![
+            User {
+                name: "Alice".to_string(),
+                age: 30,
+            },
+            User {
+                name: "Bob".to_string(),
+                age: 25,
+            },
+        ]
+    }
+}
+
+// Contract to get input and output data
+// from the database operation.
+#[derive(Debug)]
+pub struct GetUserContract {
+    pub name: String,
+    pub users: Option<User>,
+}
+
+fn handle_get_user_by_name<T: GetUsers>(contract: GetUserContract) -> GetUserContract {
+    let user = T::get_user_by_name(&contract.name);
+    GetUserContract {
+        name: contract.name,
+        users: user,
+    }
+}
+
+#[derive(Debug)]
 pub enum ContractHandler {
     ContractOne(ContractOne),
     ContractTwo(ContractTwo),
+    GetUserContract(GetUserContract),
 }
 
 // Process the contract one
@@ -55,17 +108,28 @@ register_contract_routes!(
     ContractHandler,
     handle_contract,
     ContractOne => handle_contract_one,
-    ContractTwo => handle_contract_two
+    ContractTwo => handle_contract_two,
+    GetUserContract => handle_get_user_by_name::<PostgresDB>
 );
 
 fn main() {
     let contract_one = ContractOne {
-        input_data: "Input Data".to_string(),
+        input_data: "Contract one".to_string(),
         output_data: None,
     };
 
     let outcome = handle_contract(
       ContractHandler::ContractOne(contract_one),
+    );
+    println!("{:?}", outcome);
+
+    let get_user_contract = GetUserContract {
+        name: "Alice".to_string(),
+        users: None,
+    };
+
+    let outcome = handle_contract(
+        ContractHandler::GetUserContract(get_user_contract),
     );
     println!("{:?}", outcome);
 }
